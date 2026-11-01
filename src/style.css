@@ -242,3 +242,6 @@ input[type=range] { width: 100%; accent-color: var(--ink); height: 28px; }
   .chat { max-height: 80px; }
   #shelf { flex-direction: row; }
 }
+
+.tips { margin: 8px 0 0; padding-left: 18px; color: var(--ink-2); font-size: 14.5px; }
+.tips li { margin: 5px 0; }

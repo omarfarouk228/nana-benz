@@ -158,6 +158,14 @@ function morning() {
       ${ev.sunday ? `
         <p class="lead">Le marché est fermé. Les dames vont à la messe… et regardent les pagnes des autres. Profite-en pour t’occuper de ton réseau.</p>
         <div class="sticky-go"><button class="btn gold" id="go-even">Passer la journée</button></div>` : `
+      ${S.day === 0 ? `<div class="card" style="margin-top:14px"><div class="in">
+        <h3>Les conseils de tante Ama</h3>
+        <ul class="tips">
+          <li>Commence petit : quelques pièces de <b>fancy</b> pour les étudiantes et les chorales, et de l’<b>anglais</b> pour les dames. Le hollandais rapporte plus, mais il coûte cher.</li>
+          <li>Varie les motifs : chaque cliente préfère un style (symboles, nature, géométrique). Ce qui est <b>à la mode</b> part plus cher.</li>
+          <li>Au marché, annonce un prix plus haut que ce que tu espères, puis descends doucement. Si tu demandes trop, elle s’en va fâchée et on en parle au marché.</li>
+        </ul>
+      </div></div>` : ''}
       ${G.needsTontine(S) ? `<div class="card" style="margin-top:14px;border:2px solid var(--gold)"><div class="in spread">
         <div><h3>La tontine du quartier</h3><p class="muted" style="margin:4px 0 0">Ta caisse est vide. Les femmes de ta tontine te prêtent ${fmt(G.TONTINE.lend)}, à rendre ${fmt(G.TONTINE.back)} dès que tes affaires reprennent.</p></div>
         <button class="btn gold" id="tontine">Accepter le prêt</button></div></div>` : S.debt ? `<p class="muted" style="margin:12px 0 0">Tu dois encore ${fmt(S.debt)} à la tontine : ce sera remboursé un soir où ta caisse le permet.</p>` : ''}

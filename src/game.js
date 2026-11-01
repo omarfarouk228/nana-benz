@@ -136,7 +136,7 @@ export function makeCustomer(s, rng, forced) {
     id: ++cid, kind, P, qty, prefStyle, tiers,
     wantTrend: kind === 'fonctionnaire' || kind === 'fiancee',
     female: !P.man,
-    look: { skin: Math.floor(rng() * 5), wrap: Math.floor(rng() * 1000), style: Math.floor(rng() * 3), seed: Math.floor(rng() * 1e6) },
+    look: { kind, skin: Math.floor(rng() * 5), wrap: Math.floor(rng() * 1000), style: Math.floor(rng() * 3), seed: Math.floor(rng() * 1e6) },
     rich: (s.event && s.event.rich) || 1,
     mood: 1,
   };

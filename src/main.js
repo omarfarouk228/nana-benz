@@ -1,5 +1,6 @@
 import * as G from './game.js';
-import { Market, DAY_SECONDS } from './market.js';
+import { Market, DAY_SECONDS, SELF } from './market.js';
+import { HaggleScene } from './scene.js';
 import { drawPortrait, drawFigure } from './people.js';
 import { waxURL, waxPattern } from './wax.js';
 import { TIERS, PERSONAS, ARGUMENTS, AGENTS, MARGINS, UPGRADES, BENZ_PRICE, CATALOG, dateOf } from './data.js';
@@ -105,7 +106,7 @@ const cleanName = (v) => String(v || '').replace(/[<>]/g, '').trim().slice(0, 16
 
 function heroLoop(cv) {
   const g = cv.getContext('2d');
-  const look = { skin: 1, style: 0, seed: 424242 };
+  const look = { skin: 1, style: 0, seed: 424242, age: 1 };
   const loop = (t) => {
     if (!document.body.contains(cv)) return;
     const r = cv.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
@@ -293,7 +294,16 @@ function openHaggle(c) {
   market.paused = true;
   c.state = 'haggle';
   const rng = mulberry32((S.seed + S.day * 31 + c.id * 977) >>> 0);
-  haggle = { h: G.startHaggle(S, c, c.item, rng), rng, c, talkT: 1, argOpen: false };
+  haggle = { h: G.startHaggle(S, c, c.item, rng), rng, c, talkT: 1, argOpen: false, busy: false, typing: false };
+  const h0 = haggle.h;
+  haggle.shown = h0.log.length; haggle.typeLast = true;
+  haggle.scene = new HaggleScene({
+    c, p: h0.p, qty: h0.qty, self: SELF,
+    others: S.shelf.filter((id) => id !== c.item && S.stock[id]).map((id) => G.pattern(S, id).spec),
+    roof: S.upgrades.boutique ? 'boutique' : S.upgrades.parasol ? 'parasol' : 'tole',
+    onEvent: (e) => { if (e === 'note') sound.paper(); else if (e === 'cash') sound.coin(); else if (e === 'rub') sound.rustle(); },
+  });
+  setTimeout(() => { if (haggle && haggle.h === h0) haggle.scene.speak(sound.speak(h0.log[0].text, voiceOf(c)) || 1.4); }, 350);
   const st = S.stock[c.item];
   haggle.price = round50(Math.max(haggle.h.V * 1.35, st.cost * 1.3));
   haggle.min = round50(st.cost * 0.6);
@@ -321,9 +331,9 @@ function renderHaggle() {
       <div class="hg-main">
         <div class="hg-item"><div class="swatch" style="${sw(p.spec, 56)}"></div>
           <div><div class="nm">${esc(p.name)}</div><div class="meta">${tierTag(p.tier)} ${trendTag(G.trendOf(S, h.id))} <span>tu l’as payé ${fmt(cost)}</span></div></div></div>
-        <div class="chat" id="chat">${h.log.map((m) => `<div class="msg ${m.who}">${esc(m.text)}</div>`).join('')}</div>
-        ${h.done ? resultHTML() : `
-        <div class="offerline"><span class="muted">Elle propose</span><b>${fmt(h.offer)}${h.qty > 1 ? ' <small class="muted" style="font:700 13px var(--sans)">la pièce</small>' : ''}</b></div>
+        <div class="chat" id="chat">${h.log.slice(0, haggle.shown).map((m) => `<div class="msg ${m.who}">${esc(m.text)}</div>`).join('')}${haggle.typing ? '<div class="msg her typing" aria-label="Réflexion en cours"><i></i><i></i><i></i></div>' : ''}</div>
+        ${h.done && !haggle.busy ? resultHTML() : `
+        <div class="offerline"><span class="muted">${c.P.man ? 'Il' : 'Elle'} propose</span><b>${fmt(h.offer)}${h.qty > 1 ? ' <small class="muted" style="font:700 13px var(--sans)">la pièce</small>' : ''}</b></div>
         <div class="myprice">
           <div class="val"><span class="muted">Ton prix${h.qty > 1 ? ' (la pièce)' : ''}</span><b id="hg-p">${fmt(haggle.price)}</b></div>
           <input type="range" id="hg-r" min="${haggle.min}" max="${haggle.max}" step="50" value="${haggle.price}" aria-label="Ton prix">
@@ -331,7 +341,7 @@ function renderHaggle() {
           <div class="steps" style="flex:0 0 auto;gap:4px"><button data-s="-500">−500</button><button data-s="-100">−100</button><button data-s="100">+100</button><button data-s="500">+500</button></div></div>
         </div>
         ${haggle.argOpen ? `<div class="args">${haggle.args.map((k) => `<button data-arg="${k}">« ${esc(ARGUMENTS[k].line)} »</button>`).join('')}</div>` : ''}
-        <div class="hg-acts">
+        <div class="hg-acts${haggle.busy ? ' busy' : ''}">
           <button class="btn wide" id="hg-prop">Proposer ${fmt(haggle.price)}</button>
           <button class="btn green" id="hg-acc">Accepter ${fmt(h.offer)}</button>
           <button class="btn ghost" id="hg-arg" ${h.usedArg ? 'disabled' : ''}>Argumenter</button>
@@ -341,7 +351,17 @@ function renderHaggle() {
       </div>
     </div>`;
   const chat = $('#chat'); chat.scrollTop = chat.scrollHeight;
-  if (h.done) { $('#hg-back').onclick = finishHaggle; return; }
+  if (haggle.typeLast) {
+    haggle.typeLast = false;
+    const el = [...chat.querySelectorAll('.msg.her:not(.typing)')].pop();
+    if (el) {
+      const full = el.textContent; el.textContent = ''; let i = 0;
+      const tick = () => { if (!el.isConnected) return; i += 2; el.textContent = full.slice(0, i); chat.scrollTop = chat.scrollHeight; if (i < full.length) setTimeout(tick, 24); };
+      tick();
+    }
+  }
+  if (h.done && !haggle.busy) { $('#hg-back').onclick = finishHaggle; return; }
+  if (h.done) return;
   const setPrice = (v) => {
     haggle.price = clamp(round50(v), haggle.min, haggle.max);
     const m = haggle.price - cost;
@@ -353,24 +373,68 @@ function renderHaggle() {
   };
   $('#hg-r').oninput = (e) => setPrice(+e.target.value);
   $$('.steps button').forEach((b) => b.onclick = () => { sound.click(); setPrice(haggle.price + +b.dataset.s); });
-  $('#hg-prop').onclick = () => act(() => G.propose(S, h, haggle.price, haggle.rng), `Je te le fais à ${fmt(haggle.price)}.`);
-  $('#hg-acc').onclick = () => act(() => G.acceptOffer(S, h, haggle.rng), 'D’accord, c’est bon pour moi.');
-  $('#hg-go').onclick = () => act(() => G.letGo(S, h, haggle.rng), 'Désolée, je ne peux pas descendre plus bas.');
-  $('#hg-arg').onclick = () => { sound.click(); haggle.argOpen = !haggle.argOpen; renderHaggle(); };
-  $('#hg-gift').onclick = () => act(() => G.giveGift(S, h, haggle.rng));
-  $$('[data-arg]').forEach((b) => b.onclick = () => { haggle.argOpen = false; act(() => G.useArgument(S, h, b.dataset.arg, haggle.rng)); });
+  $('#hg-prop').onclick = () => act(() => G.propose(S, h, haggle.price, haggle.rng), `Je te le fais à ${fmt(haggle.price)}.`, 'propose', fmt(haggle.price));
+  $('#hg-acc').onclick = () => act(() => G.acceptOffer(S, h, haggle.rng), 'D’accord, c’est bon pour moi.', 'propose', 'D’accord');
+  $('#hg-go').onclick = () => act(() => G.letGo(S, h, haggle.rng), 'Désolée, je ne peux pas descendre plus bas.', 'shrug');
+  $('#hg-arg').onclick = () => { if (haggle.busy) return; sound.click(); haggle.argOpen = !haggle.argOpen; renderHaggle(); };
+  $('#hg-gift').onclick = () => act(() => G.giveGift(S, h, haggle.rng), null, 'gift');
+  $$('[data-arg]').forEach((b) => b.onclick = () => { haggle.argOpen = false; act(() => G.useArgument(S, h, b.dataset.arg, haggle.rng), null, 'present', null, b.dataset.arg); });
 }
 
-function act(fn, myLine) {
-  const h = haggle.h;
+// voix de la cliente selon son profil
+function voiceOf(c) {
+  const T = haggle?.scene?.T;
+  const base = c.P.man ? 125 : c.kind === 'fidele' ? 185 : c.kind === 'etudiante' ? 245 : c.kind === 'touriste' ? 230 : 210;
+  return { base: base * (0.95 + ((c.look.seed % 100) / 100) * 0.12), vol: 0.055, bright: T?.tourist ? 1.15 : 1 };
+}
+const MY_VOICE = { base: 200, vol: 0.035, bright: 0.9 };
+
+// le joueur agit : geste immédiat, puis la cliente réfléchit un instant avant de répondre
+function act(fn, myLine, kind, chip, arg) {
+  if (!haggle || haggle.busy) return;
+  const h = haggle.h, sc = haggle.scene;
+  const before = { offer: h.offer, mood: h.mood, n: h.log.length };
   if (myLine) h.log.push({ who: 'me', text: myLine });
   fn();
-  haggle.talkT = 0;
+  let i = before.n; while (i < h.log.length && h.log[i].who === 'me') i++;
+  haggle.shown = i;
+  sound.click();
+  const said = h.log.slice(before.n, i).map((m) => m.text).join(' ');
+  sound.speak(said, MY_VOICE);
+  if (kind) sc.play(kind);
+  if (chip) sc.chip(chip, 'me', 0.2);
+  haggle.busy = true; haggle.typing = true;
   market.spend(4);
+  renderHaggle();
+  const wait = 650 + Math.min(900, said.length * 14) + Math.random() * 350;
+  setTimeout(() => reveal(before, arg), wait);
+}
+
+function reveal(before, arg) {
+  if (!haggle) return;
+  const h = haggle.h, sc = haggle.scene, c = haggle.c;
+  const lines = h.log.slice(haggle.shown).filter((m) => m.who === 'her').map((m) => m.text).join(' ');
+  haggle.shown = h.log.length; haggle.typing = false; haggle.typeLast = !!lines;
+  if (lines) sc.speak(Math.max(sound.speak(lines, voiceOf(c)), lines.length * 0.035));
   if (h.done) {
-    if (h.result.sold) { sound.coin(); setTimeout(() => sound.deal(), 120); dayLog.sales.push({ who: h.c.P.label, name: h.p.name, qty: h.qty, total: h.result.total, margin: h.result.margin }); }
-    else sound.fail();
-  } else sound.click();
+    const r = h.result;
+    sc.setMood(r.sold ? 0.95 : 0.08);
+    if (r.sold) {
+      sc.play('deal', { notes: clamp(Math.ceil(r.total / 4000), 1, 6) });
+      setTimeout(() => sound.deal(), 1500);
+      dayLog.sales.push({ who: c.P.label, name: h.p.name, qty: h.qty, total: r.total, margin: r.margin });
+    } else {
+      if (r.insulted) sc.play('recoil'); else sc.play('shake');
+      sc.play('leave', {}, 1);
+      sound.fail();
+    }
+  } else {
+    sc.setMood(h.mood);
+    if (h.mood > before.mood + 0.04) { sc.play('nod'); if (arg === 'qualite' || h.usedGift) sc.play('touch', {}, 0.5); }
+    else if (h.offer !== before.offer) { sc.play('counter'); sc.chip(fmt(h.offer), 'her', 0.3); }
+    else sc.play('shake');
+  }
+  haggle.busy = false;
   renderHaggle();
   updateBar();
 }
@@ -382,14 +446,14 @@ function resultHTML() {
       <div class="muted">${h.qty} pièce${h.qty > 1 ? 's' : ''} à ${fmt(r.price)} · ${r.margin >= 0 ? 'bénéfice' : 'perte'} ${fmt(Math.abs(r.margin))}${r.repGain ? ` · réputation +${r.repGain}` : ''}</div></div>
       <button class="btn gold" id="hg-back" style="width:100%">Retour à l’étal</button>`;
   }
-  return `<div class="result"><div class="kicker" style="color:var(--red)">Pas de vente</div><b class="neg">${r.insulted ? 'Elle est vexée' : 'Elle est partie'}</b>
+  return `<div class="result"><div class="kicker" style="color:var(--red)">Pas de vente</div><b class="neg">${h.c.P.man ? (r.insulted ? 'Il est vexé' : 'Il est parti') : (r.insulted ? 'Elle est vexée' : 'Elle est partie')}</b>
     <div class="muted">Réputation −${r.insulted ? 2 : 1}. Trop cher, on part ; trop bas, on y perd.</div></div>
     <button class="btn" id="hg-back" style="width:100%">Retour à l’étal</button>`;
 }
 
 function finishHaggle() {
   const { h, c } = haggle;
-  market.finish(c, h.result.sold);
+  market.finish(c, h.result.sold, h.result.sold ? h.result.total : 0);
   closeModal();
   market.paused = false;
   S.shelf = S.shelf.filter((id) => S.stock[id]);
@@ -407,10 +471,7 @@ function portraitLoop() {
     if (cv.width !== Math.round(r.width * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
     const g = cv.getContext('2d');
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    haggle.talkT += 1 / 60;
-    const talk = haggle.talkT < 0.9 ? Math.abs(Math.sin(haggle.talkT * 18)) : 0;
-    const mood = haggle.h.done ? (haggle.h.result.sold ? 0.95 : 0.1) : haggle.h.mood;
-    drawPortrait(g, r.width, r.height, haggle.c.look, { mood, talk, man: haggle.c.P.man, blink: (t / 1000 % 3.7) < 0.12, t: t / 1000 });
+    haggle.scene.draw(g, r.width, r.height);
   };
   requestAnimationFrame(loop);
 }

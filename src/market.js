@@ -8,6 +8,8 @@ import { mulberry32, clamp, rand, pick } from './util.js';
 export const DAY_SECONDS = 160; // durée réelle d'une journée de marché (7 h → 18 h)
 const OPEN_H = 7, CLOSE_H = 18;
 const SPOTS = [-0.24, 0, 0.24]; // places devant le stand (fraction de la largeur)
+export const SELF = { skin: 1, style: 0, seed: 424242, age: 1 };
+export const SISTER = { skin: 2, style: 2, seed: 7777, age: 0 };
 
 export class Market {
   constructor(canvas, s, cb) {
@@ -21,6 +23,7 @@ export class Market {
     this.paused = false;
     this.customers = [];
     this.passers = [];
+    this.fx = []; // échanges visibles : tissu qui part, billets qui arrivent, montant qui s'envole
     this.bg = null;
     this.resize();
     addEventListener('resize', () => this.resize());
@@ -106,6 +109,8 @@ export class Market {
       p.x += p.dir * p.sp * dt; p.walk += dt * 6;
       if (p.x < -60 || p.x > this.W + 60) Object.assign(p, this.makePasser(false));
     }
+    for (const f of this.fx) f.t += dt;
+    this.fx = this.fx.filter((f) => f.t < f.d);
     if (!this.running || this.paused) return;
     this.time += dt;
     this.cb.tick?.(this.hour);
@@ -117,6 +122,7 @@ export class Market {
     const s = this.s;
     for (const c of this.customers) {
       c.walk += dt * 7;
+      if (c.giving > 0) c.giving -= dt;
       if (c.state === 'arrive') {
         const tx = this.spots[c.spot];
         const d = tx - c.x;
@@ -142,8 +148,10 @@ export class Market {
       if (this.sisterT <= 0) {
         const c = this.customers.find((c) => c.state === 'wait' && c.item && c.wait > 5 && !c.P.uniform && c.kind !== 'fiancee');
         if (c) {
+          const spec = pattern(s, c.item).spec;
           const sale = sisterSale(s, c, c.item);
-          c.state = 'leave'; c.bag = true; c.leaveDelay = 0.8; c.dir = this.rng() < 0.5 ? 1 : -1;
+          c.state = 'leave'; c.bag = true; c.leaveDelay = 2; c.dir = this.rng() < 0.5 ? 1 : -1;
+          this.exchange(c, spec, sale.price * sale.qty, this.stallX + this.stallW * 0.16);
           this.cb.served?.(c, sale);
           this.sisterT = 9;
         } else this.sisterT = 1.5;
@@ -167,9 +175,20 @@ export class Market {
     if (best) this.cb.tap?.(best);
   }
 
-  finish(c, sold) {
-    c.state = 'leave'; c.bag = sold; c.leaveDelay = 0.6; c.dir = this.rng() < 0.5 ? 1 : -1;
+  finish(c, sold, total = 0) {
+    c.state = 'leave'; c.bag = sold; c.leaveDelay = sold ? 1.9 : 0.8; c.dir = this.rng() < 0.5 ? 1 : -1;
     c.bubble = sold ? 'happy' : 'angry';
+    if (sold && c.item) this.exchange(c, pattern(this.s, c.item).spec, total, this.stallX - (this.s.upgrades.soeur ? this.stallW * 0.12 : 0));
+  }
+
+  // la commerçante tend le tissu plié, la cliente donne les billets
+  exchange(c, spec, total, sellerX) {
+    const tableY = this.lane - this.figH * 0.62;
+    c.carry = spec; c.giving = 1.6;
+    this.fx.push({ kind: 'cloth', spec, x0: sellerX, y0: tableY - this.figH * 0.2, x1: c.x, y1: this.lane - this.figH * 0.5, t: 0, d: 0.7 });
+    const notes = Math.min(5, Math.max(1, Math.round(total / 2500)));
+    for (let k = 0; k < notes; k++) this.fx.push({ kind: 'note', x0: c.x, y0: this.lane - this.figH * 0.62, x1: sellerX, y1: tableY - this.figH * 0.35, t: -0.55 - k * 0.12, d: 0.6, k });
+    if (total) this.fx.push({ kind: 'text', text: `+${total.toLocaleString('fr-FR')} F`, x0: sellerX, y0: tableY - this.figH * 0.9, t: -0.9, d: 1.6 });
   }
 
   /* ------------------------------------------------------------ dessin */
@@ -232,14 +251,22 @@ export class Market {
     g.drawImage(this.bg, 0, 0, W, H);
     // passants (arrière-plan, plus petits et voilés)
     const ph = this.figH * 0.55;
-    for (const p of this.passers) drawFigure(g, p.x, this.backLane + p.depth * H * 0.04, ph * (0.9 + p.depth * 0.2), p.look, { walk: p.walk, dir: p.dir, man: p.man, load: p.load, alpha: 0.85 });
+    const back = [...this.passers].sort((a, b) => a.depth - b.depth);
+    for (const p of back) drawFigure(g, p.x, this.backLane + p.depth * H * 0.04, ph * (0.9 + p.depth * 0.2), p.look, { walk: p.walk, dir: p.dir, man: p.man, load: p.load, alpha: 0.6 + p.depth * 0.3, t: this.t });
     this.drawStall();
     // clientes (premier plan)
     const order = [...this.customers].sort((a, b) => a.x - b.x);
     for (const c of order) {
-      drawFigure(g, c.x, this.lane, this.figH, c.look, { walk: c.state === 'wait' ? 0 : c.walk, dir: c.state === 'wait' ? (c.x < this.stallX ? 1 : -1) : c.dir, man: c.P.man, load: c.bag ? '#f4efe4' : null });
+      const still = c.state === 'wait' || c.state === 'haggle' || (c.state === 'leave' && c.leaveDelay > 0);
+      // en attente, elle regarde l'étal (de dos) et montre de temps en temps le tissu qui lui plaît
+      let point = 0;
+      if (c.giving > 0) point = Math.min(1, c.giving * 2);
+      else if (c.state === 'wait') { const ph2 = (c.wait * 0.55 + c.id * 1.7) % 6; point = ph2 < 1.4 ? Math.sin((ph2 / 1.4) * Math.PI) : 0; }
+      else if (c.state === 'haggle') point = 0.5 + Math.sin(this.t * 3) * 0.2;
+      drawFigure(g, c.x, this.lane, this.figH, c.look, { walk: still ? 0 : c.walk, dir: c.dir, view: still ? 'back' : 'side', point, man: c.P.man, carry: c.bag ? c.carry : null, t: this.t });
       this.drawBubble(c);
     }
+    this.drawFx();
     // lumière de fin de journée
     if (warm > 0) { g.fillStyle = `rgba(232,120,40,${warm * 0.18})`; g.fillRect(0, 0, W, H); }
   }
@@ -256,17 +283,17 @@ export class Market {
       g.fillStyle = '#f2c230'; g.font = `700 ${Math.round(this.figH * 0.11)}px Fraunces, Georgia, serif`; g.textAlign = 'center';
       g.fillText(`Chez ${s.name} · Wax hollandais`, this.stallX, top - this.figH * 0.98);
     } else if (s.upgrades.parasol) {
-      g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(this.stallX - 3, top - this.figH * 0.9, 6, this.figH * 0.9);
+      g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(this.stallX - 3, top - this.figH * 1.1, 6, this.figH * 1.1);
       g.fillStyle = waxPattern(g, { motif: 'zigzag', bg: '#c0392b', fg: '#f2c230', ac: '#1d2f6f', seed: 3 }, 120, 0.6);
-      g.beginPath(); g.moveTo(x0 - 20, top - this.figH * 0.62); g.quadraticCurveTo(this.stallX, top - this.figH * 1.15, x0 + w + 20, top - this.figH * 0.62); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(x0 - 20, top - this.figH * 0.92); g.quadraticCurveTo(this.stallX, top - this.figH * 1.4, x0 + w + 20, top - this.figH * 0.92); g.closePath(); g.fill();
     } else {
-      g.fillStyle = '#8a8f94'; g.beginPath(); g.moveTo(x0 - 14, top - this.figH * 0.55); g.lineTo(x0 + w + 14, top - this.figH * 0.62); g.lineTo(x0 + w + 14, top - this.figH * 0.5); g.lineTo(x0 - 14, top - this.figH * 0.44); g.fill();
-      for (const px of [x0 + 6, x0 + w - 10]) { g.fillStyle = '#5a4030'; g.fillRect(px, top - this.figH * 0.5, 5, this.figH * 0.6); }
+      g.fillStyle = '#8a8f94'; g.beginPath(); g.moveTo(x0 - 14, top - this.figH * 0.85); g.lineTo(x0 + w + 14, top - this.figH * 0.92); g.lineTo(x0 + w + 14, top - this.figH * 0.8); g.lineTo(x0 - 14, top - this.figH * 0.74); g.fill();
+      g.fillStyle = 'rgba(255,255,255,.12)'; for (let x = x0 - 10; x < x0 + w + 10; x += 12) g.fillRect(x, top - this.figH * (0.86 + (x - x0) / w * 0.07), 4, this.figH * 0.1);
+      for (const px of [x0 + 6, x0 + w - 10]) { g.fillStyle = '#5a4030'; g.fillRect(px, top - this.figH * 0.8, 5, this.figH * 0.9); }
     }
     // la commerçante derrière l'étal (et sa petite sœur)
-    const self = { skin: 1, style: 0, seed: 424242 };
-    drawFigure(g, this.stallX + (s.upgrades.soeur ? -w * 0.12 : 0), top + this.figH * 0.15, this.figH * 0.95, self, { walk: Math.sin(this.t * 0.8) * 0.1 });
-    if (s.upgrades.soeur) drawFigure(g, this.stallX + w * 0.16, top + this.figH * 0.15, this.figH * 0.8, { skin: 2, style: 2, seed: 7777 }, { walk: Math.sin(this.t * 0.9 + 1) * 0.1 });
+    drawFigure(g, this.stallX + (s.upgrades.soeur ? -w * 0.12 : 0), top + this.figH * 0.32, this.figH * 0.88, SELF, { view: 'front', t: this.t });
+    if (s.upgrades.soeur) drawFigure(g, this.stallX + w * 0.16, top + this.figH * 0.32, this.figH * 0.78, SISTER, { view: 'front', t: this.t + 2 });
     // table
     g.fillStyle = '#6b4a2e'; g.fillRect(x0, top, w, tableH);
     g.fillStyle = '#7d583a'; g.fillRect(x0, top, w, tableH * 0.18);
@@ -293,6 +320,37 @@ export class Market {
       g.fillStyle = '#fff'; g.font = `700 ${Math.round(tableH * 0.2)}px Manrope, system-ui, sans-serif`; g.textAlign = 'center';
       g.fillText(`${st.q}`, bx + bwi / 2, top + tableH * 0.53);
     });
+  }
+
+  drawFx() {
+    const g = this.g, fh = this.figH;
+    for (const f of this.fx) {
+      if (f.t < 0) continue;
+      const k = Math.min(1, f.t / f.d), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      if (f.kind === 'text') {
+        g.globalAlpha = 1 - Math.max(0, k - 0.6) / 0.4;
+        g.fillStyle = '#1e6b4a'; g.strokeStyle = '#fffaf0'; g.lineWidth = 4; g.textAlign = 'center';
+        g.font = `900 ${Math.round(fh * 0.13)}px Fraunces, Georgia, serif`;
+        const y = f.y0 - e * fh * 0.3;
+        g.strokeText(f.text, f.x0, y); g.fillText(f.text, f.x0, y);
+        g.globalAlpha = 1;
+        continue;
+      }
+      const x = f.x0 + (f.x1 - f.x0) * e, y = f.y0 + (f.y1 - f.y0) * e - Math.sin(k * Math.PI) * fh * 0.22;
+      g.save(); g.translate(x, y);
+      if (f.kind === 'cloth') {
+        const w = fh * 0.16, h = fh * 0.07;
+        g.rotate(Math.sin(k * Math.PI) * 0.2);
+        g.fillStyle = waxPattern(g, f.spec, 120, 0.3); g.fillRect(-w / 2, -h / 2, w, h);
+        g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(-w / 2, h * 0.2, w, h * 0.3);
+      } else {
+        const w = fh * 0.1, h = fh * 0.05;
+        g.rotate(-0.4 + k * 0.8 + f.k * 0.15);
+        g.fillStyle = ['#b3804a', '#6f8a52', '#9b5a3a'][f.k % 3]; g.fillRect(-w / 2, -h / 2, w, h);
+        g.strokeStyle = 'rgba(255,250,230,.6)'; g.lineWidth = 1; g.strokeRect(-w / 2 + 2, -h / 2 + 2, w - 4, h - 4);
+      }
+      g.restore();
+    }
   }
 
   drawBubble(c) {

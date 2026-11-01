@@ -10,6 +10,7 @@ Jeu de commerce dans le navigateur (PC et mobile). Lomé, décembre 1974 : ta ta
 2. **Ton étal** : tu choisis les tissus exposés (4 emplacements au début). Les clientes ne voient que ça.
 3. **Le marché** (de 7 h à 18 h) : les clientes arrivent, regardent, attendent. Touche-en une pour la servir.
 4. **Le marchandage** : elle fait une offre, tu annonces ton prix, elle remonte… ou s'en va. Tu peux vanter la qualité, parler de la mode ou du mariage, offrir un foulard. Chaque cliente a son caractère : la future mariée et sa mère, la trésorière de chorale qui veut 10 pièces du même motif, la revendeuse de Cotonou, l'étudiante, le commerçant d'Accra, la touriste…
+   La scène se vit depuis l'étal : tu déplies le pagne sur le comptoir, elle le touche, hoche ou secoue la tête, répond après un temps de réflexion avec sa propre voix, pose ses billets que tu ramasses, puis repart avec le tissu plié.
 5. **Le soir** : bilan, revendeuses à qui confier des pièces (Aného, Kpalimé, Atakpamé, Cotonou, Accra : elles reviennent avec l'argent… ou pas), améliorations (parasol, étal plus large, ta petite sœur au stand, magasin au port, boutique en dur, ton propre motif en exclusivité).
 
 Le calendrier compte : samedis chargés, dimanches fermés, Noël, Nouvel An, fête de l'Indépendance, jours de pluie, jours de paie, grands mariages.
@@ -36,6 +37,7 @@ Chaque push sur `main` est déployé sur GitHub Pages.
 | Fichier | Rôle |
 | --- | --- |
 | `src/main.js` | Écrans : titre, comptoir, marché, marchandage, soir, fin |
+| `src/scene.js` | Scène du marchandage vue de l'étal : gestes, mains, billets, tissu |
 | `src/game.js` | Règles et économie |
 | `src/data.js` | Catalogue, clientèle, revendeuses, améliorations, calendrier, événements |
 | `src/market.js` | Scène du Grand marché (Canvas 2D) |

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2a1a12">
+  <title>Nana Benz · La reine du wax</title>
+  <meta name="description" content="Jeu de commerce au Grand marché de Lomé dans les années 1970 : achète, marchande et vends du wax jusqu'à t'offrir la Benz.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,600;1,9..144,800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <canvas id="scene" aria-label="Le Grand marché de Lomé"></canvas>
+
+  <!-- barre du marché -->
+  <header id="bar" hidden>
+    <div class="b-date"><b id="b-day">Jour 1</b><span id="b-date">lundi 2 décembre 1974</span></div>
+    <div class="b-clock"><span id="b-hour">7 h 00</span><i class="b-sun"><i id="b-sun"></i></i></div>
+    <div class="b-money"><b id="b-money">0 F</b><span id="b-rep">Réputation</span></div>
+    <button class="icon" id="b-mute" aria-label="Son"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="w" d="M16.5 8.5a5 5 0 0 1 0 7"/></svg></button>
+  </header>
+  <footer id="shelf" hidden>
+    <div class="sh-items" id="sh-items"></div>
+    <button class="btn small ghost" id="b-close">Fermer le stand</button>
+  </footer>
+  <div id="toasts" aria-live="polite"></div>
+
+  <main id="screen" class="screen"></main>
+  <div id="modal" class="modal" hidden></div>
+
+  <div id="loading"><div class="ld-mark">Nana<br>Benz</div></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

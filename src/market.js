@@ -8,6 +8,13 @@ import { mulberry32, clamp, rand, pick } from './util.js';
 export const DAY_SECONDS = 160; // durée réelle d'une journée de marché (7 h → 18 h)
 const OPEN_H = 7, CLOSE_H = 18;
 const SPOTS = [-0.24, 0, 0.24]; // places devant le stand (fraction de la largeur)
+// cris des vendeuses ambulantes et petites scènes entre passants
+const CALLS = ['Ablo chaud !', 'Koliko, koliko !', 'Ayimolou !', 'Pain de Lomé !', 'Glace, glace !', 'Akassa !', 'Arachides grillées !', 'Mangues sucrées !'];
+const VIGNETTES = {
+  greet: [['Woézon !', 'Efo a ?', 'Me fo, akpé !'], ['Tantie, bonjour !', 'Ma fille ! Ça va ?', 'Ça va bien !'], ['Eh, Kodjo !', 'Mon frère, tu es où depuis ?']],
+  argue: [['Eh ! Tu m’as marché dessus !', 'Pardon, pardon !', 'Regarde devant toi !'], ['C’est ma place, ça !', 'Depuis quand ?', 'Depuis ce matin !'], ['Tu me dois 200 F !', 'Demain, demain…', 'Toujours demain !']],
+  laugh: [['Tu as vu son pagne ?', 'Hahaha !', 'Arrête, je vais tomber !'], ['Il a dit quoi ?', 'Hihihi !', 'Ah ce garçon-là !']],
+};
 export const SELF = { skin: 1, style: 0, seed: 424242, age: 1 };
 export const SISTER = { skin: 2, style: 2, seed: 7777, age: 0 };
 
@@ -82,8 +89,42 @@ export class Market {
       x: spread ? rng() * this.W : dir > 0 ? -40 : this.W + 40, dir, sp: 28 + rng() * 26, walk: rng() * 6,
       look: { skin: Math.floor(rng() * 5), style: Math.floor(rng() * 3), seed: Math.floor(rng() * 1e6) },
       man: rng() < 0.3, load: rng() < 0.3 ? pick(Math.random, ['#c9ced3', '#2f78a8', '#e0a526', '#c0392b']) : null,
-      depth: rng(),
+      depth: rng(), kind: 'walk', stop: 0, say: null, sayT: 0, lines: [], argue: 0,
     };
+  }
+
+  /* ------------------------------------------------------------ petites scènes de rue */
+  vignette() {
+    const W = this.W, vis = this.passers.filter((p) => p.kind === 'walk' && p.x > 40 && p.x < W - 40 && !p.stop);
+    const r = Math.random();
+    const talk = (p, delay, text, dur = 2.2) => p.lines.push({ at: delay, text, dur });
+    // deux passants qui se croisent : salutations, dispute ou fou rire
+    const pairs = [];
+    for (const a of vis) for (const b of vis) if (a !== b && a.dir > 0 && b.dir < 0 && b.x > a.x && b.x - a.x < 170) pairs.push([a, b]);
+    if (pairs.length && r < 0.55) {
+      const [a, b] = pick(Math.random, pairs);
+      const kind = pick(Math.random, ['greet', 'greet', 'argue', 'laugh']);
+      const dur = kind === 'argue' ? 4.2 : 3.4;
+      for (const p of [a, b]) { p.stop = dur; p.walk = 0; }
+      const L = VIGNETTES[kind];
+      const lines = pick(Math.random, L);
+      lines.forEach((text, i) => talk(i % 2 ? b : a, i * 1.05, text, 1.6));
+      if (kind === 'argue') { a.argue = b.argue = dur; }
+      return;
+    }
+    if (r < 0.72) {
+      // une vendeuse ambulante crie sa marchandise
+      const p = vis.find((q) => q.load && !q.man) || vis.find((q) => !q.man);
+      if (p) { talk(p, 0, pick(Math.random, CALLS), 2.4); return; }
+    }
+    if (r < 0.86) {
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      this.passers.push({ ...this.makePasser(false), kind: 'bike', dir, x: dir > 0 ? -60 : W + 60, sp: 95 + Math.random() * 30, man: true, load: null, depth: 0.7 });
+      this.cb.sfx?.('bell');
+      return;
+    }
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    this.passers.push({ ...this.makePasser(false), kind: 'child', dir, x: dir > 0 ? -60 : W + 60, sp: 80 + Math.random() * 20, man: Math.random() < 0.5, load: null, depth: 0.9, look: { skin: Math.floor(Math.random() * 5), style: 0, seed: Math.floor(Math.random() * 1e6), age: 0, kind: 'enfant' } });
   }
 
   spawn(forced) {
@@ -106,9 +147,18 @@ export class Market {
     this.t += dt;
     // passants en arrière-plan (toujours animés)
     for (const p of this.passers) {
-      p.x += p.dir * p.sp * dt; p.walk += dt * 6;
-      if (p.x < -60 || p.x > this.W + 60) Object.assign(p, this.makePasser(false));
+      for (const l of p.lines) { l.at -= dt; if (l.at <= 0 && !l.on) { l.on = true; p.say = l.text; p.sayT = l.dur; this.cb.sfx?.('say', p, l.text); } }
+      p.lines = p.lines.filter((l) => !l.on);
+      if (p.sayT > 0) { p.sayT -= dt; if (p.sayT <= 0) p.say = null; }
+      if (p.argue > 0) p.argue -= dt;
+      if (p.stop > 0) { p.stop -= dt; continue; }
+      p.x += p.dir * p.sp * dt; p.walk += dt * (p.kind === 'child' ? 11 : p.kind === 'bike' ? 7 : 6);
+      if (p.x < -70 || p.x > this.W + 70) {
+        if (p.kind !== 'walk') p.dead = true; else Object.assign(p, this.makePasser(false));
+      }
     }
+    this.passers = this.passers.filter((p) => !p.dead);
+    if (!this.paused) { this.vigT = (this.vigT ?? 3) - dt; if (this.vigT <= 0) { this.vigT = 5 + Math.random() * 6; this.vignette(); } }
     for (const f of this.fx) f.t += dt;
     this.fx = this.fx.filter((f) => f.t < f.d);
     if (!this.running || this.paused) return;
@@ -252,8 +302,21 @@ export class Market {
     // passants (arrière-plan, plus petits et voilés)
     const ph = this.figH * 0.55;
     const back = [...this.passers].sort((a, b) => a.depth - b.depth);
-    for (const p of back) drawFigure(g, p.x, this.backLane + p.depth * H * 0.04, ph * (0.9 + p.depth * 0.2), p.look, { walk: p.walk, dir: p.dir, man: p.man, load: p.load, alpha: 0.6 + p.depth * 0.3, t: this.t });
+    const says = [];
+    for (const p of back) {
+      const y = this.backLane + p.depth * H * 0.04, h = ph * (0.9 + p.depth * 0.2), alpha = 1;
+      if (p.kind === 'bike') this.drawBike(g, p, y, h);
+      else if (p.kind === 'child') {
+        drawFigure(g, p.x, y, h * 0.62, p.look, { walk: p.walk, dir: p.dir, man: p.man, alpha, t: this.t });
+        // le cerceau (vieux pneu) qu'il pousse avec un bâton
+        const hx = p.x + p.dir * h * 0.32, hr = h * 0.13;
+        g.strokeStyle = '#1d1712'; g.lineWidth = Math.max(2, h * 0.03); g.beginPath(); g.arc(hx, y - hr, hr, 0, Math.PI * 2); g.stroke();
+        g.lineWidth = 1.5; g.beginPath(); g.moveTo(p.x + p.dir * h * 0.08, y - h * 0.3); g.lineTo(hx, y - hr); g.stroke();
+      } else drawFigure(g, p.x, y, h, p.look, { walk: p.stop > 0 ? 0 : p.walk, dir: p.dir, man: p.man, load: p.load, alpha, t: this.t, point: p.argue > 0 ? 0.5 + Math.sin(this.t * 9) * 0.5 : p.say && p.stop > 0 ? 0.35 : 0 });
+      if (p.say) says.push([p.x, y - h * (p.load ? 1.25 : 1.12), p.say]);
+    }
     this.drawStall();
+    for (const [x, y, text] of says) this.drawSay(g, x, y, text);
     // clientes (premier plan)
     const order = [...this.customers].sort((a, b) => a.x - b.x);
     for (const c of order) {
@@ -269,6 +332,16 @@ export class Market {
     this.drawFx();
     // lumière de fin de journée
     if (warm > 0) { g.fillStyle = `rgba(232,120,40,${warm * 0.18})`; g.fillRect(0, 0, W, H); }
+    // jour de grosse pluie : ciel gris et averse
+    if (this.s.event && this.s.event.id === 'pluie') {
+      g.fillStyle = 'rgba(70,80,95,.28)'; g.fillRect(0, 0, W, H);
+      g.strokeStyle = 'rgba(210,225,240,.45)'; g.lineWidth = 1.2; g.beginPath();
+      for (let i = 0; i < 140; i++) {
+        const x = ((i * 97.13 + this.t * 60) % (W + 40)) - 20, y = ((i * 53.7 + this.t * 900) % (H + 40)) - 20;
+        g.moveTo(x, y); g.lineTo(x - 4, y + 16);
+      }
+      g.stroke();
+    }
   }
 
   drawStall() {
@@ -320,6 +393,35 @@ export class Market {
       g.fillStyle = '#fff'; g.font = `700 ${Math.round(tableH * 0.2)}px Manrope, system-ui, sans-serif`; g.textAlign = 'center';
       g.fillText(`${st.q}`, bx + bwi / 2, top + tableH * 0.53);
     });
+  }
+
+  drawBike(g, p, y, h) {
+    const u = h / 100, r = 14 * u, d = p.dir;
+    // le cycliste, puis le vélo par-dessus ses jambes
+    drawFigure(g, p.x, y - r * 1.15, h * 0.92, p.look, { walk: p.walk, dir: d, man: true, t: this.t });
+    g.save(); g.strokeStyle = '#1f1a17'; g.lineWidth = Math.max(1.5, 2.2 * u);
+    for (const k of [-1, 1]) {
+      g.beginPath(); g.arc(p.x + k * 18 * u, y - r, r, 0, Math.PI * 2); g.stroke();
+      g.save(); g.translate(p.x + k * 18 * u, y - r); g.rotate(p.walk * d * 0.8); g.lineWidth = 0.7;
+      for (let a = 0; a < 4; a++) { g.rotate(Math.PI / 4); g.beginPath(); g.moveTo(-r, 0); g.lineTo(r, 0); g.stroke(); }
+      g.restore();
+    }
+    g.strokeStyle = '#8c2a22'; g.lineWidth = Math.max(1.5, 2.6 * u);
+    g.beginPath(); g.moveTo(p.x - 18 * u, y - r); g.lineTo(p.x - 2 * u, y - r); g.lineTo(p.x + 10 * u * d, y - r - 18 * u); g.lineTo(p.x - 6 * u * d, y - r - 18 * u); g.lineTo(p.x - 18 * u * d, y - r);
+    g.moveTo(p.x + 18 * u * d, y - r); g.lineTo(p.x + 13 * u * d, y - r - 24 * u); g.lineTo(p.x + 7 * u * d, y - r - 26 * u); g.stroke();
+    g.restore();
+  }
+
+  drawSay(g, x, y, text) {
+    g.save();
+    g.font = `800 ${Math.round(clamp(this.figH * 0.085, 11, 15))}px Manrope, system-ui, sans-serif`;
+    const w = g.measureText(text).width + 16, h = clamp(this.figH * 0.14, 20, 26);
+    const bx = clamp(x - w / 2, 4, this.W - w - 4);
+    g.fillStyle = 'rgba(255,250,240,.96)'; g.strokeStyle = '#2a1a12'; g.lineWidth = 1.5;
+    g.beginPath(); g.roundRect ? g.roundRect(bx, y - h, w, h, h / 2) : g.rect(bx, y - h, w, h); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(x - 5, y - 1); g.lineTo(x, y + 6); g.lineTo(x + 4, y - 1); g.fill();
+    g.fillStyle = '#2a1a12'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, bx + w / 2, y - h / 2 + 1); g.textBaseline = 'alphabetic';
+    g.restore();
   }
 
   drawFx() {

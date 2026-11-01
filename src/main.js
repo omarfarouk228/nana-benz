@@ -1,6 +1,8 @@
 import * as G from './game.js';
 import { Market, DAY_SECONDS, SELF } from './market.js';
 import { HaggleScene } from './scene.js';
+import { Music } from './music.js';
+import { playCine } from './cine.js';
 import { drawPortrait, drawFigure } from './people.js';
 import { waxURL, waxPattern } from './wax.js';
 import { TIERS, PERSONAS, ARGUMENTS, AGENTS, MARGINS, UPGRADES, BENZ_PRICE, CATALOG, dateOf } from './data.js';
@@ -8,6 +10,7 @@ import { Sound } from './audio.js';
 import { $, $$, esc, fmt, clamp, mulberry32, pick, shuffle, round50 } from './util.js';
 
 const sound = new Sound();
+const music = new Music(sound);
 let S = G.load();
 let dayLog = null;
 let haggle = null;
@@ -45,6 +48,10 @@ const market = new Market($('#scene'), S || G.newGame(), {
     else if (why === 'nothing') toast(`${c.P.label} cherchait du ${c.tiers.map((t) => TIERS[t].name.toLowerCase()).join(' ou ')}, plutôt motif ${c.prefStyle}.`, '', 3200);
   },
   tick: () => updateBar(),
+  sfx: (name, p, text) => {
+    if (name === 'bell') { sound.tone(2350, 0.14, 'sine', 0.035); sound.tone(2350, 0.18, 'sine', 0.035, 0.16); }
+    else if (name === 'say' && text) sound.speak(text, { base: p.man ? 130 : p.kind === 'child' ? 300 : 225, vol: 0.016 });
+  },
   closing: () => { if (market.running) endMarket(); },
 });
 let last = performance.now();
@@ -93,7 +100,7 @@ function title() {
     G.save(S);
     morning();
   };
-  if (saved) $('#t-cont').onclick = () => { sound.init(); sound.click(); S = saved; S.name = cleanName($('#t-name').value) || S.name; market.s = S; S.phase === 'evening' ? evening(true) : morning(); };
+  if (saved) $('#t-cont').onclick = () => { sound.init(); sound.click(); S = saved; S.name = cleanName($('#t-name').value) || S.name; market.s = S; if (S.phase === 'evening') { music.play('evening'); evening(true); } else morning(); };
 }
 function confirmReset() {
   // pas de boîte de dialogue du navigateur : second appui pour confirmer
@@ -140,6 +147,8 @@ function morning() {
   if (!resumed) S.dayStartMoney = S.money;
   G.save(S);
   sound.init(); if (!resumed) sound.morning();
+  music.play('morning');
+  if (!resumed) playCine('dawn', { kicker: `Jour ${S.day + 1}`, title: esc(dateOf(S.day).label), line: dawnLine(ev) }, SELF);
   dayLog = { sales: [], lost: 0, bought: 0, startMoney: S.dayStartMoney ?? S.money };
   const evIcon = ev.feast ? '🎉' : { pluie: '🌧', bateau: '🚢', arrivage: '📦', rumeur: '👂', malheur: '🙊', mariage: '💍', paie: '💰', debut: '🌅' }[ev.id] || '☀';
   const ret = returns.map((r) => r.ok === true ? `<div class="pill" style="background:#e3f1e8">${esc(r.ag.name)} revient de ${esc(r.ag.town)} : +${fmt(r.amount)}</div>`
@@ -252,6 +261,7 @@ function openMarket() {
   market.s = S;
   market.open();
   sound.ambience(true);
+  music.play('market');
   updateBar(); updateShelf();
   toast('Touche une cliente qui attend devant ton étal pour la servir.', 'gold', 4200);
 }
@@ -281,7 +291,25 @@ function endMarket() {
   market.close();
   sound.ambience(false);
   closeModal();
+  music.play('evening');
+  const rev = dayLog.sales.reduce((a, b) => a + b.total, 0), n = dayLog.sales.length;
+  playCine('dusk', { kicker: 'Le soir', title: 'Le soleil se couche sur Assigamé', line: n ? `Recette du jour : ${fmt(rev)} en ${n} vente${n > 1 ? 's' : ''}.` : 'Pas une seule vente aujourd’hui. Demain sera meilleur.' }, SELF);
   evening();
+}
+
+// une phrase pour ouvrir la journée
+function dawnLine(ev) {
+  if (S.day === 0) return 'Ta tante t’a laissé sa place au Grand marché. Aujourd’hui, la commerçante, c’est toi.';
+  if (ev?.feast) return `${ev.feast.name}. ${ev.feast.text}`;
+  if (ev?.sunday) return 'Dimanche : le marché est fermé, Lomé se repose.';
+  if (ev && ev.id !== 'calme' && ev.title) return `${ev.title}. ${ev.text || ''}`.trim();
+  if (S.money >= BENZ_PRICE * 0.6) return 'La Benz n’est plus très loin. Au marché, on commence à parler de toi.';
+  return pick(Math.random, [
+    'Les pirogues rentrent de la pêche, Lomé se réveille.',
+    'L’harmattan voile le soleil. Sur la route du port, les vendeuses pressent le pas.',
+    'Le comptoir ouvre tôt : les plus belles pièces partent vite.',
+    'Encore une journée pour se rapprocher de la Benz.',
+  ]);
 }
 
 /* ------------------------------------------------------------ marchandage */
@@ -628,7 +656,7 @@ function drawBenz(cv, color = '#efe6d2') {
 
 /* ------------------------------------------------------------ fin */
 function ending() {
-  sound.fanfare();
+  sound.fanfare(); music.play('evening');
   $('#bar').hidden = true; $('#shelf').hidden = true;
   show(`<div class="veil"><div class="wrap ending">
     <div class="kicker">${esc(dateOf(S.day).label)}</div>

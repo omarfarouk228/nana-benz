@@ -256,3 +256,15 @@ input[type=range] { width: 100%; accent-color: var(--ink); height: 28px; }
 
 .tips { margin: 8px 0 0; padding-left: 18px; color: var(--ink-2); font-size: 14.5px; }
 .tips li { margin: 5px 0; }
+
+/* ------------------------------------------------------------ cinématiques */
+#cine { position: fixed; inset: 0; z-index: 40; background: #0b0705; opacity: 0; transition: opacity .6s ease; cursor: pointer; }
+#cine.show { opacity: 1; }
+#cine.out { opacity: 0; }
+#cine canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.cine-txt { position: absolute; left: 0; right: 0; bottom: 14vh; text-align: center; padding: 0 20px; color: #fff6e2; text-shadow: 0 2px 14px rgba(0,0,0,.6); }
+.cine-txt .kicker { color: #f2c230; letter-spacing: .18em; opacity: 0; animation: cfade .8s .3s forwards; }
+.cine-txt h2 { font: 900 clamp(28px, 5.6vw, 58px)/1 var(--serif); margin: 8px 0 12px; opacity: 0; animation: cfade 1s .55s forwards; }
+.cine-txt p { font: 600 clamp(15px, 2vw, 19px)/1.4 var(--sans); max-width: 640px; margin: 0 auto; min-height: 1.4em; }
+.cine-skip { position: absolute; right: 16px; bottom: calc(10px + var(--safe-b)); font: 700 12px var(--sans); color: rgba(255,246,226,.6); }
+@keyframes cfade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }

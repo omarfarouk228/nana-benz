@@ -44,6 +44,7 @@ export function traits(look, man = false) {
   const skin = tourist ? pick(TOURIST_SKINS) : SKINS[(look.skin ?? 0) % SKINS.length];
   let hair = 'wrap';
   if (man) hair = 'short';
+  else if (kind === 'enfant') hair = rng() < 0.5 ? 'threads' : 'afro';
   else if (tourist) hair = 'loose';
   else if (kind === 'etudiante' || (age === 0 && !kind && rng() < 0.45)) hair = rng() < 0.55 ? 'threads' : 'afro';
   const T = {

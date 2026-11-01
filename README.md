@@ -37,6 +37,8 @@ Chaque push sur `main` est déployé sur GitHub Pages.
 | Fichier | Rôle |
 | --- | --- |
 | `src/main.js` | Écrans : titre, comptoir, marché, marchandage, soir, fin |
+| `src/music.js` | Musique générée : cloche ewe en 12/8, hochet, basse, guitare highlife, kalimba |
+| `src/cine.js` | Cinématiques de l'aube (plage de Lomé) et du soir (Grand marché) |
 | `src/scene.js` | Scène du marchandage vue de l'étal : gestes, mains, billets, tissu |
 | `src/game.js` | Règles et économie |
 | `src/data.js` | Catalogue, clientèle, revendeuses, améliorations, calendrier, événements |

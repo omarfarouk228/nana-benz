@@ -114,8 +114,10 @@ export class HaggleScene {
     // passants derrière la cliente
     for (const p of this.passers) {
       p.x += p.sp * p.dir / 60; if (p.x < -0.15) p.x = 1.15; if (p.x > 1.15) p.x = -0.15;
-      drawFigure(g, p.x * W, H * 0.57 + p.d * H * 0.03, H * (0.17 + p.d * 0.04), p.look, { walk: t * 6 + p.ph, dir: p.dir, man: p.man, alpha: 0.38, t });
+      drawFigure(g, p.x * W, H * 0.57 + p.d * H * 0.03, H * (0.17 + p.d * 0.04), p.look, { walk: t * 6 + p.ph, dir: p.dir, man: p.man, t });
     }
+    // voile de lointain sur les passants (sans les rendre transparents)
+    g.fillStyle = 'rgba(247,236,214,.28)'; g.fillRect(0, H * 0.3, W, H * 0.4);
 
     // état courant à partir des actions
     let turn = 0, nod = 0, lean = 0, slide = 0, fade = 1, gazeY = 0, gazeX = null;

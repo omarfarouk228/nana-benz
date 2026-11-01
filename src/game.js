@@ -63,7 +63,8 @@ export function startDay(s) {
   }
   // événement
   const feast = feastOf(date);
-  let ev = { ...RANDOM_EVENTS.find((e) => e.id === weighted(rng, Object.fromEntries(RANDOM_EVENTS.map((e) => [e.id, e.w])))) };
+  const evId = weighted(rng, Object.fromEntries(RANDOM_EVENTS.map((e) => [e.id, e.w])));
+  let ev = { ...RANDOM_EVENTS.find((e) => e.id === evId) };
   if (s.day === 0) ev = { id: 'debut', title: 'Ton premier jour', text: 'Ta tante t’a laissé sa place au marché et 60 000 F. Le reste dépend de toi.' };
   if (ev.trendUp || ev.trendDown) {
     const p = pick(rng, CATALOG.filter((c) => c.tier !== 'fancy'));
@@ -296,10 +297,31 @@ export const agentBusy = (s, id) => s.agents.some((a) => a.agentId === id);
 /* ------------------------------------------------------------ soir */
 export const rentOf = (s) => (s.upgrades.boutique ? 2500 : 600);
 
+// brader au comptoir un tissu qui ne se vend pas (60 % du prix payé)
+export function dump(s, id, q = 1) {
+  const st = s.stock[id];
+  if (!st || st.q < q) return 0;
+  const back = round50(st.cost * 0.6 * q);
+  s.money += back; st.q -= q;
+  if (st.q <= 0) { delete s.stock[id]; s.shelf = s.shelf.filter((x) => x !== id); }
+  return back;
+}
+
+// la tontine du quartier dépanne quand la caisse est vide et l'étal aussi
+export const TONTINE = { lend: 40000, back: 48000 };
+export function needsTontine(s) {
+  const cheapest = Math.min(...(s.offers || []).map((o) => o.price), 99999);
+  return !s.debt && s.money < cheapest * 2;
+}
+export function takeTontine(s) { s.money += TONTINE.lend; s.debt = TONTINE.back; s.stats.loans = (s.stats.loans || 0) + 1; }
+
 export function endDay(s, dayLog) {
   const rent = s.event && s.event.sunday ? 0 : rentOf(s);
   s.money -= rent;
-  const entry = { day: s.day, ...dayLog, rent, money: s.money, rep: s.rep };
+  // remboursement de la tontine dès que la caisse le permet
+  let repaid = 0;
+  if (s.debt && s.money >= s.debt + 15000) { repaid = s.debt; s.money -= s.debt; s.debt = 0; }
+  const entry = { day: s.day, ...dayLog, rent, repaid, money: s.money, rep: s.rep };
   s.history.push(entry);
   if (s.history.length > 60) s.history.shift();
   s.phase = 'evening';

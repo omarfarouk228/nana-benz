@@ -113,6 +113,7 @@ h3 { font-size: 20px; font-weight: 700; }
 .stockitem.on { border-color: var(--gold); background: #fff8e4; }
 .stockitem .nm { font: 700 14px/1.15 var(--serif); }
 .stockitem small { color: var(--muted); font-size: 12px; }
+.dump { display: inline-block; margin-top: 5px; border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 3px 9px; font: 700 11.5px var(--sans); color: var(--ink-2); }
 .check { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--ink); display: grid; place-items: center; font: 900 13px var(--sans); }
 .stockitem.on .check { background: var(--ink); color: var(--paper); }
 .sticky-go { position: sticky; bottom: calc(10px + var(--safe-b)); margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }

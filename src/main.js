@@ -152,12 +152,15 @@ function morning() {
       </div>
       <div class="card waxed" style="margin-top:14px"><div class="in event">
         <div class="ico">${evIcon}</div>
-        <div><h3>${esc(ev.feast ? ev.feast.name : ev.title)}</h3><p class="lead" style="margin-top:4px;font-size:15px">${esc(ev.feast ? ev.feast.text : ev.text)}${ev.saturday ? ' C’est samedi : le marché sera plein.' : ''}</p>
+        <div><h3>${esc(ev.feast ? ev.feast.name : ev.title || 'Journée ordinaire')}</h3><p class="lead" style="margin-top:4px;font-size:15px">${esc(ev.feast ? ev.feast.text : ev.text || 'Le marché vit son rythme habituel.')}${ev.saturday ? ' C’est samedi : le marché sera plein.' : ''}</p>
         ${ret ? `<div class="row" style="margin-top:8px">${ret}</div>` : ''}</div>
       </div></div>
       ${ev.sunday ? `
         <p class="lead">Le marché est fermé. Les dames vont à la messe… et regardent les pagnes des autres. Profite-en pour t’occuper de ton réseau.</p>
         <div class="sticky-go"><button class="btn gold" id="go-even">Passer la journée</button></div>` : `
+      ${G.needsTontine(S) ? `<div class="card" style="margin-top:14px;border:2px solid var(--gold)"><div class="in spread">
+        <div><h3>La tontine du quartier</h3><p class="muted" style="margin:4px 0 0">Ta caisse est vide. Les femmes de ta tontine te prêtent ${fmt(G.TONTINE.lend)}, à rendre ${fmt(G.TONTINE.back)} dès que tes affaires reprennent.</p></div>
+        <button class="btn gold" id="tontine">Accepter le prêt</button></div></div>` : S.debt ? `<p class="muted" style="margin:12px 0 0">Tu dois encore ${fmt(S.debt)} à la tontine : ce sera remboursé un soir où ta caisse le permet.</p>` : ''}
       <div class="grid2">
         <div class="card"><div class="in">
           <div class="spread"><h3>Arrivages du jour</h3><span class="pill" id="stockpill">Stock ${G.stockCount(S)} / ${G.stockCap(S)}</span></div>
@@ -206,9 +209,15 @@ function morning() {
       const p = G.pattern(S, id), st = S.stock[id];
       return `<div class="stockitem ${S.shelf.includes(id) ? 'on' : ''}" data-id="${id}">
         <div class="swatch sm" style="${sw(p.spec, 40)}"></div>
-        <div><div class="nm">${esc(p.name)}</div><small>${TIERS[p.tier].name} · ${st.q} pièce${st.q > 1 ? 's' : ''} · payé ${fmt(st.cost)}</small></div>
+        <div><div class="nm">${esc(p.name)}</div><small>${TIERS[p.tier].name} · ${st.q} pièce${st.q > 1 ? 's' : ''} · payé ${fmt(st.cost)} · ${trendTag(G.trendOf(S, id))}</small>
+        <button class="dump" data-dump="${id}" title="Revendre une pièce au comptoir">Brader 1 pièce · +${fmt(round50(st.cost * 0.6))}</button></div>
         <div class="check">${S.shelf.includes(id) ? '✓' : ''}</div></div>`;
     }).join('') : '<p class="muted">Ton stock est vide : achète au moins quelques pièces.</p>';
+    $$('#stocklist [data-dump]').forEach((b) => b.onclick = (e) => {
+      e.stopPropagation();
+      const got = G.dump(S, b.dataset.dump, 1);
+      if (got) { sound.coin(); toast(`Bradé au comptoir : +${fmt(got)}`); $('#m-money').textContent = fmt(S.money); G.save(S); renderOffers(); renderStock(); }
+    });
     $$('#stocklist .stockitem').forEach((el) => el.onclick = () => {
       const id = el.dataset.id;
       if (S.shelf.includes(id)) S.shelf = S.shelf.filter((x) => x !== id);
@@ -218,6 +227,7 @@ function morning() {
     });
   };
   renderOffers(); renderStock();
+  if ($('#tontine')) $('#tontine').onclick = () => { G.takeTontine(S); G.save(S); sound.coin(); toast(`+${fmt(G.TONTINE.lend)} de la tontine.`, 'good'); morning(); };
   $('#go-market').onclick = () => {
     S.shelf = S.shelf.filter((id) => S.stock[id]);
     if (!S.shelf.length) { toast('Expose au moins un tissu sur ton étal.', 'bad'); return; }
@@ -435,6 +445,7 @@ function renderEvening() {
       <div class="card waxed"><div class="in ledger">
         ${rows || '<p class="muted">Aucune vente aujourd’hui.</p>'}
         ${e.rent ? `<div class="l"><span>Taxe de place au marché</span><span class="neg">−${fmt(e.rent)}</span></div>` : ''}
+        ${e.repaid ? `<div class="l"><span>Remboursement de la tontine</span><span class="neg">−${fmt(e.repaid)}</span></div>` : ''}
         <div class="l tot"><span>Caisse ce soir</span><span>${fmt(S.money)}</span></div>
         <div class="l"><span>Bénéfice sur les ventes (taxe déduite)</span><span class="${profit >= 0 ? 'pos' : 'neg'}">${profit >= 0 ? '+' : '−'}${fmt(Math.abs(profit))}</span></div>
         <div class="l"><span>Évolution de la caisse (achats de stock compris)</span><span class="${delta >= 0 ? 'pos' : 'neg'}">${delta >= 0 ? '+' : '−'}${fmt(Math.abs(delta))}</span></div>

@@ -1,7 +1,7 @@
 // Scène du Grand marché (canvas 2D) : décor, foule de passage, stand, clientes qui arrivent et attendent.
 import { drawFigure } from './people.js';
 import { waxPattern } from './wax.js';
-import { pattern, makeCustomer, chooseItem, crowdSize, sisterSale, dayRng } from './game.js';
+import { pattern, makeCustomer, chooseItem, crowdSize, sisterSale, dayRng, trendOf } from './game.js';
 import { TIERS, STYLE_ICONS } from './data.js';
 import { mulberry32, clamp, rand, pick } from './util.js';
 
@@ -9,6 +9,7 @@ export const DAY_SECONDS = 160; // durée réelle d'une journée de marché (7 h
 const OPEN_H = 7, CLOSE_H = 18;
 const SPOTS = [-0.24, 0, 0.24]; // places devant le stand (fraction de la largeur)
 // cris des vendeuses ambulantes et petites scènes entre passants
+const HAILS = ['Venez voir, du vrai hollandais !', 'Ma sœur, regarde ce pagne !', 'Wax tout neuf, venez toucher !', 'Prix doux aujourd’hui !', 'Mama, c’est pour toi ça !', 'Les nouveaux motifs sont arrivés !'];
 const CALLS = ['Ablo chaud !', 'Koliko, koliko !', 'Ayimolou !', 'Pain de Lomé !', 'Glace, glace !', 'Akassa !', 'Arachides grillées !', 'Mangues sucrées !'];
 const VIGNETTES = {
   greet: [['Woézon !', 'Efo a ?', 'Me fo, akpé !'], ['Tantie, bonjour !', 'Ma fille ! Ça va ?', 'Ça va bien !'], ['Eh, Kodjo !', 'Mon frère, tu es où depuis ?']],
@@ -93,6 +94,35 @@ export class Market {
     };
   }
 
+  /* ------------------------------------------------------------ héler les passants */
+  // la commerçante crie un boniment ; un passant proche peut se retourner et venir à l'étal
+  hail() {
+    if (!this.running || this.paused) return null;
+    const s = this.s;
+    this.sellerSay = { text: pick(Math.random, HAILS), t: 2.4 };
+    const free = this.free.some(Boolean);
+    const vis = this.passers.filter((p) => p.kind === 'walk' && !p.stop && p.x > 30 && p.x < this.W - 30 && !p.lines.length);
+    if (!vis.length) return { ok: false, why: 'personne' };
+    vis.sort((a, b) => Math.abs(a.x - this.stallX) - Math.abs(b.x - this.stallX));
+    const p = vis[0];
+    const trendy = s.shelf.some((id) => trendOf(s, id) > 1.05);
+    const chance = Math.min(0.85, 0.42 + s.rep / 200 + (trendy ? 0.12 : 0) + (s.upgrades.parasol ? 0.05 : 0));
+    const ph = this.figH * 0.55, y = this.backLane + p.depth * this.H * 0.04;
+    if (free && Math.random() < chance) {
+      p.lines.push({ at: 0.9, text: pick(Math.random, ['J’arrive !', 'Montre-moi ça !', 'Ah bon ? Voyons voir.', 'Hollandais ? J’arrive !']), dur: 1.6 });
+      p.stop = 1.6;
+      setTimeout(() => {
+        const i = this.passers.indexOf(p);
+        if (i < 0 || !this.running) return;
+        const c = this.spawn(p.man ? 'ghaneen' : null, { x: p.x, y, look: p.look });
+        if (c !== false) Object.assign(this.passers[i], this.makePasser(false));
+      }, 1700);
+      return { ok: true };
+    }
+    p.lines.push({ at: 0.9, text: pick(Math.random, ['Pas aujourd’hui !', 'Tout à l’heure !', 'Je n’ai pas d’argent, ma sœur.', 'Je reviens…']), dur: 1.8 });
+    return { ok: false, why: free ? 'refus' : 'plein' };
+  }
+
   /* ------------------------------------------------------------ petites scènes de rue */
   vignette() {
     const W = this.W, vis = this.passers.filter((p) => p.kind === 'walk' && p.x > 40 && p.x < W - 40 && !p.stop);
@@ -127,13 +157,14 @@ export class Market {
     this.passers.push({ ...this.makePasser(false), kind: 'child', dir, x: dir > 0 ? -60 : W + 60, sp: 80 + Math.random() * 20, man: Math.random() < 0.5, load: null, depth: 0.9, look: { skin: Math.floor(Math.random() * 5), style: 0, seed: Math.floor(Math.random() * 1e6), age: 0, kind: 'enfant' } });
   }
 
-  spawn(forced) {
+  spawn(forced, from = null) {
     const free = this.free.map((f, i) => (f ? i : -1)).filter((i) => i >= 0);
     if (!free.length) return false;
     const c = makeCustomer(this.s, this.rng, forced);
-    c.spot = this.rng() < 0.5 ? free[0] : free[free.length - 1];
+    c.spot = from ? free.reduce((a, b) => (Math.abs(this.spots[b] - from.x) < Math.abs(this.spots[a] - from.x) ? b : a)) : this.rng() < 0.5 ? free[0] : free[free.length - 1];
     c.dir = this.rng() < 0.5 ? 1 : -1;
     c.x = c.dir > 0 ? -60 : this.W + 60;
+    if (from) { c.x = from.x; c.look = { ...from.look, kind: c.kind }; c.yOff = from.y - this.lane; c.dir = this.spots[c.spot] > c.x ? 1 : -1; }
     c.state = 'arrive';
     c.wait = 0;
     c.maxWait = (22 + c.P.patience * 4) * (this.s.upgrades.parasol ? 1.25 : 1);
@@ -159,6 +190,7 @@ export class Market {
     }
     this.passers = this.passers.filter((p) => !p.dead);
     if (!this.paused) { this.vigT = (this.vigT ?? 3) - dt; if (this.vigT <= 0) { this.vigT = 5 + Math.random() * 6; this.vignette(); } }
+    if (this.sellerSay) { this.sellerSay.t -= dt; if (this.sellerSay.t <= 0) this.sellerSay = null; }
     for (const f of this.fx) f.t += dt;
     this.fx = this.fx.filter((f) => f.t < f.d);
     if (!this.running || this.paused) return;
@@ -173,11 +205,13 @@ export class Market {
     for (const c of this.customers) {
       c.walk += dt * 7;
       if (c.giving > 0) c.giving -= dt;
+
+      if (c.yOff) { c.yOff *= Math.pow(0.04, dt); if (Math.abs(c.yOff) < 1) c.yOff = 0; }
       if (c.state === 'arrive') {
         const tx = this.spots[c.spot];
         const d = tx - c.x;
         c.x += Math.sign(d) * Math.min(Math.abs(d), 120 * dt);
-        if (Math.abs(d) < 2) {
+        if (Math.abs(d) < 2 && !c.yOff) {
           c.state = 'wait'; c.walk = 0;
           c.item = chooseItem(s, c);
           if (!c.item) { c.bubble = 'nothing'; c.state = 'leave'; c.dir = this.rng() < 0.5 ? 1 : -1; c.leaveDelay = 1.6; this.cb.left?.(c, 'nothing'); }
@@ -326,10 +360,11 @@ export class Market {
       if (c.giving > 0) point = Math.min(1, c.giving * 2);
       else if (c.state === 'wait') { const ph2 = (c.wait * 0.55 + c.id * 1.7) % 6; point = ph2 < 1.4 ? Math.sin((ph2 / 1.4) * Math.PI) : 0; }
       else if (c.state === 'haggle') point = 0.5 + Math.sin(this.t * 3) * 0.2;
-      drawFigure(g, c.x, this.lane, this.figH, c.look, { walk: still ? 0 : c.walk, dir: c.dir, view: still ? 'back' : 'side', point, man: c.P.man, carry: c.bag ? c.carry : null, t: this.t });
+      drawFigure(g, c.x, this.lane + (c.yOff || 0), this.figH * (1 + (c.yOff || 0) / (this.figH * 3)), c.look, { walk: still ? 0 : c.walk, dir: c.dir, view: still ? 'back' : 'side', point, man: c.P.man, carry: c.bag ? c.carry : null, t: this.t });
       this.drawBubble(c);
     }
     this.drawFx();
+    if (this.sellerSay) this.drawSay(g, this.stallX - (this.s.upgrades.soeur ? this.stallW * 0.12 : 0), this.lane - this.figH * 1.42, this.sellerSay.text);
     // lumière de fin de journée
     if (warm > 0) { g.fillStyle = `rgba(232,120,40,${warm * 0.18})`; g.fillRect(0, 0, W, H); }
     // jour de grosse pluie : ciel gris et averse

@@ -82,7 +82,7 @@ function title() {
           <ol>
             <li><b>Le matin, au comptoir du port</b> : achète des pièces de wax. Fancy pour les petites bourses, anglais, hollandais, et les nouveautés « super wax ». Regarde ce qui est à la mode.</li>
             <li><b>Choisis ce que tu exposes</b> sur ton étal : les clientes ne voient que ça.</li>
-            <li><b>Au marché</b>, touche une cliente pour la servir et <b>marchande</b> : annonce ton prix, écoute sa contre-offre, sors tes arguments, offre un foulard… Trop cher, elle part fâchée ; trop bas, tu perds de l’argent.</li>
+            <li><b>Au marché</b>, si personne ne s’arrête, <b>hèle les passants</b> : l’un d’eux viendra peut-être voir ton étal. Touche une cliente pour la servir et <b>marchande</b> : annonce ton prix, écoute sa contre-offre, sors tes arguments, offre un foulard… Trop cher, elle part fâchée ; trop bas, tu perds de l’argent.</li>
             <li><b>Le soir</b>, confie des pièces à tes revendeuses (Aného, Kpalimé, Cotonou…), achète un parasol, un étal plus grand, une boutique.</li>
             <li><b>Objectif</b> : réunir ${fmt(BENZ_PRICE)} pour t’offrir la Benz et devenir une Nana Benz.</li>
           </ol>
@@ -283,6 +283,23 @@ function updateShelf() {
   }).join('') || '<span class="muted" style="font-size:13px;padding:6px">Étal vide</span>';
 }
 $('#b-close').onclick = () => { sound.click(); endMarket(); };
+// héler : un boniment, puis un temps de repos de la voix
+const HAIL_CD = 9;
+let hailReady = 0;
+$('#b-hail').onclick = () => {
+  const now = performance.now() / 1000;
+  if (now < hailReady || !market.running || market.paused) return;
+  const r = market.hail();
+  if (!r) return;
+  sound.speak(market.sellerSay?.text || 'Venez voir !', { base: 215, vol: 0.06, bright: 1.05 });
+  if (r.why === 'plein') toast('Ton étal est déjà entouré : sers d’abord les clientes qui attendent.', '', 2800);
+  else if (r.why === 'personne') toast('Personne ne passe assez près pour t’entendre.', '', 2400);
+  hailReady = now + HAIL_CD;
+  const b = $('#b-hail'); b.disabled = true; b.style.setProperty('--cd', '0');
+  const t0 = now;
+  const tick = () => { const k = (performance.now() / 1000 - t0) / HAIL_CD; if (k >= 1) { b.disabled = false; b.style.removeProperty('--cd'); return; } b.style.setProperty('--cd', k.toFixed(3)); requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+};
 $('#b-mute').onclick = () => { sound.init(); sound.setMuted(!sound.muted); $('#b-mute').classList.toggle('off', sound.muted); };
 $('#b-mute').classList.toggle('off', sound.muted);
 

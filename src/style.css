@@ -243,7 +243,7 @@ input[type=range] { width: 100%; accent-color: var(--ink); height: 28px; }
   .offer .swatch { width: 52px; height: 52px; }
   .offer .buy { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; }
   #shelf { flex-direction: column; align-items: stretch; }
-  #shelf .btn { align-self: center; }
+  #shelf .sh-acts { justify-content: center; }
 }
 @media (max-height: 520px) and (orientation: landscape) {
   .haggle { grid-template-columns: 260px 1fr; }
@@ -268,3 +268,8 @@ input[type=range] { width: 100%; accent-color: var(--ink); height: 28px; }
 .cine-txt p { font: 600 clamp(15px, 2vw, 19px)/1.4 var(--sans); max-width: 640px; margin: 0 auto; min-height: 1.4em; }
 .cine-skip { position: absolute; right: 16px; bottom: calc(10px + var(--safe-b)); font: 700 12px var(--sans); color: rgba(255,246,226,.6); }
 @keyframes cfade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+.sh-acts { display: flex; gap: 8px; flex: none; }
+#b-hail { position: relative; overflow: hidden; }
+#b-hail:disabled { opacity: 1; filter: grayscale(.6); }
+#b-hail:disabled::after { content: ''; position: absolute; left: 0; bottom: 0; height: 3px; width: calc(var(--cd, 0) * 100%); background: var(--ink); }

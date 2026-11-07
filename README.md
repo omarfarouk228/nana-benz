@@ -14,11 +14,32 @@ Jeu de commerce dans le navigateur (PC et mobile). Lomé, décembre 1974 : ta ta
    La scène se vit depuis l'étal : tu déplies le pagne sur le comptoir, elle le touche, hoche ou secoue la tête, répond après un temps de réflexion avec sa propre voix, pose ses billets que tu ramasses, puis repart avec le tissu plié.
 5. **Le soir** : bilan, revendeuses à qui confier des pièces (Aného, Kpalimé, Atakpamé, Cotonou, Accra : elles reviennent avec l'argent… ou pas), améliorations (parasol, étal plus large, ta petite sœur au stand, magasin au port, boutique en dur, ton propre motif en exclusivité).
 
-Le calendrier compte : samedis chargés, dimanches fermés, Noël, Nouvel An, fête de l'Indépendance, jours de pluie, jours de paie, grands mariages.
+Le calendrier compte : samedis chargés, dimanches fermés, Noël, Nouvel An, défilé du 13 janvier, semaine sainte, fête de l'Indépendance, jours de pluie, jours de paie, grands mariages.
+
+## Au fil de la partie
+
+- **Lire la cliente** : après chaque refus, ses gestes trahissent son vrai prix (elle recule, replie le tissu, le caresse, cherche son porte-monnaie). Les marchandes aguerries cachent mieux leur jeu.
+- **Le prix juste fait la réputation** ; écorcher une cliente ou la vexer la fait baisser.
+- **Clientes fidèles** : une cliente bien servie revient avec son nom, se souvient du prix de la dernière fois et en parle autour d'elle.
+- **Des dialogues variés** : répliques propres à chaque clientèle, au temps qu'il fait, aux fêtes et à la mode du motif.
+- **Nouveautés régulières** : nouvelles clientèles (famille en deuil, institutrice, couturière, commerçante de Lagos, épouse de coopérant, planteur de Kpalimé), une collection de motifs toutes les deux semaines.
+- **Le crédit du comptoir** (réputation 15) : prendre le tissu maintenant, payer dans les 7 jours.
+- **Baptiser un motif** (réputation 25) : comme les Nana Benz, donne un surnom à un motif ; s'il prend, il devient à la mode.
+- **Ton pagne exclusif** : choisis son motif, ses couleurs, son nom et ton prix de vente.
+- **D'autres marchés** : Adawlato, Bè, Aného, Kpalimé, chacun avec sa clientèle. Le matin, tu choisis où tu vends ; ailleurs, une gérante vend ton stock.
+- **Te reposer** : reste à la maison, tes gérantes (et Afi à Assigamé) tiennent le marché ; le soir, un récapitulatif.
+- **Les revendeuses** : un billet pour les motiver, et elles rentrent un jour plus tôt.
+- **La rivale**, Mama Afiavi, rafle les arrivages à la mode, casse ses prix et court elle aussi vers sa Benz.
+- **Le garage** : la Benz (3 000 000 F) donne un titre selon ta rapidité, puis viennent la 280 SE (5 M), la 450 SEL (15 M) et la 600 Pullman (40 M), chacune livrée avec sa grande scène. Ensuite, des ambitions de grande dame.
+- **La saison** se termine à la fête de l'Indépendance, le 27 avril 1975 : sans la Benz, un classement selon ta fortune (on peut continuer).
+- **Défi du jour** : la même semaine de marché pour tout le monde, un score à partager.
+- **Coups durs** : la caisse ne passe jamais sous zéro ; la tontine, puis tante Ama, dépannent toujours.
+
+Contexte historique utilisé : nationalisation des phosphates (2 février 1974), distribution du wax par les maisons de commerce (UAC, CFAO, SCOA) qui faisaient crédit aux commerçantes. Les noms de motifs baptisés, des collections et des clientes fidèles sont inventés pour le jeu, ainsi que la rivale.
 
 ## Commandes
 
-Tout se joue à la souris ou au doigt. La partie est sauvegardée automatiquement dans le navigateur.
+Tout se joue à la souris ou au doigt, et au clavier : 1, 2, 3 servent une cliente, H hèle les passants ; pendant le marchandage, ← → changent le prix (Maj : par 500), Entrée propose, A accepte. La partie est sauvegardée après chaque vente. Une fois chargé, le jeu fonctionne hors ligne.
 
 ## Technique
 
@@ -31,6 +52,8 @@ Tout se joue à la souris ou au doigt. La partie est sauvegardée automatiquemen
 npm install
 npm run dev      # http://localhost:5174 (laisser le terminal ouvert)
 npm run build
+npm test         # règles et équilibrage (joueuses automatiques)
+npm run sim      # jour médian de la Benz selon la façon de marchander
 ```
 
 Chaque push sur `main` est déployé sur GitHub Pages.
@@ -47,6 +70,9 @@ Chaque push sur `main` est déployé sur GitHub Pages.
 | `src/wax.js` | Générateur de motifs wax |
 | `src/people.js` | Portraits et silhouettes |
 | `src/audio.js` | Sons |
+| `src/reveal.js` | Le garage : voitures et scène de livraison |
+| `public/sw.js` | Jeu hors ligne |
+| `tests/` | Tests du moteur et joueuses automatiques |
 
 ## Crédits
 

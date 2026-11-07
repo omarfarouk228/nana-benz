@@ -38,9 +38,11 @@ export function traits(look, man = false) {
   const rng = mulberry32((look.seed || 1) ^ 0x5bd1e995);
   const kind = look.kind || '';
   const pick = (a) => a[Math.floor(rng() * a.length)];
-  const tourist = kind === 'touriste';
+  const tourist = kind === 'touriste' || kind === 'epouse';
   const age = look.age ?? (kind === 'fidele' ? 2 : kind === 'etudiante' ? 0 : kind === 'fiancee' || kind === 'chorale' ? 1 : rng() < 0.3 ? 0 : rng() < 0.82 ? 1 : 2);
-  const a = CATALOG[Math.floor(rng() * CATALOG.length)], b = CATALOG[Math.floor(rng() * CATALOG.length)];
+  let a = CATALOG[Math.floor(rng() * CATALOG.length)], b = CATALOG[Math.floor(rng() * CATALOG.length)];
+  // une famille en deuil porte du sombre : noir, rouge sombre, blanc
+  if (kind === 'funerailles') { a = { spec: { ...a.spec, bg: '#16120f', fg: '#8e2a1d', ac: '#f4efe4' } }; b = { spec: { ...b.spec, bg: '#1d1714', fg: '#f4efe4', ac: '#5c1a14' } }; }
   const skin = tourist ? pick(TOURIST_SKINS) : SKINS[(look.skin ?? 0) % SKINS.length];
   let hair = 'wrap';
   if (man) hair = 'short';
@@ -55,12 +57,12 @@ export function traits(look, man = false) {
     fw: 1.02 + rng() * 0.1, // largeur du visage
     nw: tourist ? 0.72 : 1 + rng() * 0.18, // largeur du nez
     lip: tourist ? 0.8 : 1 + rng() * 0.15,
-    glasses: (age === 2 && rng() < 0.5) || (kind === 'fonctionnaire' && rng() < 0.2) || (man && rng() < 0.15),
+    glasses: (age === 2 && rng() < 0.5) || (kind === 'fonctionnaire' && rng() < 0.2) || (kind === 'institutrice' && rng() < 0.6) || (man && rng() < 0.15),
     earring: !man && rng() < 0.8, hoops: !man && age === 0 && rng() < 0.6,
     beads: !man && !tourist && (kind === 'fiancee' || rng() < 0.45),
     moustache: man && rng() < 0.65, cap: man && rng() < 0.5,
-    smock: kind === 'ghaneen' || (man && rng() < 0.2),
-    hat: tourist && rng() < 0.55, camera: tourist,
+    smock: kind === 'ghaneen' || kind === 'planteur' || (man && rng() < 0.2),
+    hat: tourist && rng() < 0.55, camera: kind === 'touriste',
     style: (look.style ?? 0) % 3,
     lean: rng() * 0.6 - 0.3,
     bangles: !man && rng() < 0.7,

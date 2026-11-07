@@ -1,7 +1,7 @@
 // Scène du Grand marché (canvas 2D) : décor, foule de passage, stand, clientes qui arrivent et attendent.
 import { drawFigure } from './people.js';
 import { waxPattern } from './wax.js';
-import { pattern, makeCustomer, chooseItem, crowdSize, sisterSale, dayRng, trendOf } from './game.js';
+import { pattern, makeCustomer, chooseItem, crowdSize, sisterSale, dayRng, trendOf, resetCustomers, placeOf } from './game.js';
 import { TIERS, STYLE_ICONS } from './data.js';
 import { mulberry32, clamp, rand, pick } from './util.js';
 
@@ -12,7 +12,7 @@ const SPOTS = [-0.24, 0, 0.24]; // places devant le stand (fraction de la largeu
 const HAILS = ['Venez voir, du vrai hollandais !', 'Ma sœur, regarde ce pagne !', 'Wax tout neuf, venez toucher !', 'Prix doux aujourd’hui !', 'Mama, c’est pour toi ça !', 'Les nouveaux motifs sont arrivés !'];
 const CALLS = ['Ablo chaud !', 'Koliko, koliko !', 'Ayimolou !', 'Pain de Lomé !', 'Glace, glace !', 'Akassa !', 'Arachides grillées !', 'Mangues sucrées !'];
 const VIGNETTES = {
-  greet: [['Woézon !', 'Efo a ?', 'Me fo, akpé !'], ['Tantie, bonjour !', 'Ma fille ! Ça va ?', 'Ça va bien !'], ['Eh, Kodjo !', 'Mon frère, tu es où depuis ?']],
+  greet: [['Woézon !', 'Efoa ?', 'Me fo, akpé !'], ['Tantie, bonjour !', 'Ma fille ! Ça va ?', 'Ça va bien !'], ['Eh, Kodjo !', 'Mon frère, tu es où depuis ?']],
   argue: [['Eh ! Tu m’as marché dessus !', 'Pardon, pardon !', 'Regarde devant toi !'], ['C’est ma place, ça !', 'Depuis quand ?', 'Depuis ce matin !'], ['Tu me dois 200 F !', 'Demain, demain…', 'Toujours demain !']],
   laugh: [['Tu as vu son pagne ?', 'Hahaha !', 'Arrête, je vais tomber !'], ['Il a dit quoi ?', 'Hihihi !', 'Ah ce garçon-là !']],
 };
@@ -70,6 +70,9 @@ export class Market {
     this.rng = dayRng(s, 9);
     this.time = 0; this.running = true; this.paused = false;
     this.customers = [];
+    resetCustomers();
+    // le décor change avec le marché du jour
+    if (this.placeId !== s.where) { this.placeId = s.where; this.bg = null; }
     const n = crowdSize(s);
     this.schedule = [];
     for (let k = 0; k < n; k++) this.schedule.push({ at: rand(this.rng, 0.02, 0.86) * DAY_SECONDS });
@@ -247,6 +250,13 @@ export class Market {
   // un marchandage fait avancer l'horloge
   spend(minutes) { this.time = Math.min(DAY_SECONDS, this.time + (minutes / 60) / (CLOSE_H - OPEN_H) * DAY_SECONDS); }
 
+  // au clavier : 1, 2, 3 servent la cliente de la place de gauche, du milieu, de droite
+  tapSpot(i) {
+    const c = this.customers.find((x) => x.spot === i && x.state === 'wait' && x.item);
+    if (c) this.cb.tap?.(c);
+    return !!c;
+  }
+
   onTap(e) {
     const r = this.cv.getBoundingClientRect();
     const x = e.clientX - r.left, y = e.clientY - r.top;
@@ -285,7 +295,8 @@ export class Market {
     const rng = mulberry32(42);
     // bâtiment du Grand marché (arcades, étages)
     const by = H * 0.18, bh = H * 0.32;
-    g.fillStyle = '#d9c7a1'; g.fillRect(0, by, W, bh);
+    const place = placeOf(this.s);
+    g.fillStyle = place.wall; g.fillRect(0, by, W, bh);
     g.fillStyle = '#c9b48a'; g.fillRect(0, by, W, bh * 0.12);
     for (let fl = 0; fl < 2; fl++) {
       for (let x = 10; x < W; x += 46) {
@@ -296,7 +307,7 @@ export class Market {
       }
     }
     g.fillStyle = '#2a1a12'; g.font = `700 ${Math.round(H * 0.026)}px Fraunces, Georgia, serif`; g.textAlign = 'center';
-    g.fillText('GRAND MARCHÉ DE LOMÉ', W / 2, by + bh * 0.085);
+    g.fillText(place.sign, W / 2, by + bh * 0.085);
     // rangée d'étals et de parasols au fond
     const sy = H * 0.5;
     g.fillStyle = '#8c6a46'; g.fillRect(0, sy, W, H * 0.06);

@@ -320,3 +320,8 @@ input[type=range] { width: 100%; accent-color: var(--ink); height: 28px; }
 .pals button i { width: 16px; height: 16px; border-radius: 50%; display: block; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
 .excl input[type=range] { width: 100%; }
 @media (max-width: 640px) { .excl-grid { grid-template-columns: 1fr; } .excl-prev { position: static; aspect-ratio: 16 / 7; } }
+/* bouton « Me reposer » : fond plein pour rester lisible au-dessus de la liste qui défile */
+.sticky-go .btn.rest { background: var(--card); color: var(--ink); border-color: var(--ink); }
+.btn.rest svg { width: 18px; height: 18px; fill: var(--indigo); stroke: none; flex: none; }
+.btn.rest.sure { background: var(--indigo); border-color: var(--indigo); color: #fff; }
+.btn.rest.sure svg { fill: var(--gold-2); }

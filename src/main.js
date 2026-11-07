@@ -250,7 +250,7 @@ function morning() {
           <div class="stocklist" id="stocklist"></div>
         </div></div>
       </div>
-      <div class="sticky-go"><button class="btn ghost rest" id="go-rest" title="${esc(G.restHelpers(S).length ? 'Tiendront le marché : ' + G.restHelpers(S).join(', ') : 'Personne ne tiendra tes places')}">Me reposer aujourd’hui</button><button class="btn gold" id="go-market">Ouvrir le stand${places.length > 1 ? ` · ${esc(G.placeOf(S).short)}` : ''}</button></div>`}
+      <div class="sticky-go"><button class="btn rest" id="go-rest" title="${esc(G.restHelpers(S).length ? 'Tiendront le marché : ' + G.restHelpers(S).join(', ') : 'Personne ne tiendra tes places')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span>Me reposer</span></button><button class="btn gold" id="go-market">Ouvrir le stand${places.length > 1 ? ` · ${esc(G.placeOf(S).short)}` : ''}</button></div>`}
     </div></div>`);
   if ($('#tontine')) $('#tontine').onclick = () => { G.takeTontine(S); G.save(S); sound.coin(); toast(`+${fmt(G.TONTINE.lend)} de la tontine.`, 'good'); morning(); };
   if ($('#aunt')) $('#aunt').onclick = () => { G.takeAunt(S); G.save(S); sound.coin(); toast(`+${fmt(G.AUNT_GIFT)} de tante Ama.`, 'good'); morning(); };
@@ -337,7 +337,8 @@ function morning() {
     if (!$('#go-rest').dataset.sure) {
       // second appui pour confirmer, avec ce qui va se passer
       $('#go-rest').dataset.sure = '1';
-      $('#go-rest').textContent = helpers.length ? 'Confirmer le repos' : 'Fermer l’étal toute la journée ?';
+      $('#go-rest span').textContent = helpers.length ? 'Confirmer le repos' : 'Fermer toute la journée ?';
+      $('#go-rest').classList.add('sure');
       toast(helpers.length ? `Pendant ton repos : ${helpers.join(', ')} ${helpers.length > 1 ? 'vendront' : 'vendra'} ton stock. Tes revendeuses continuent leur route.` : 'Personne ne tiendra ton étal : pas de vente aujourd’hui, mais pas de taxe de place non plus.', '', 4200);
       return;
     }

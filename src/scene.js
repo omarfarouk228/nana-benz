@@ -1,6 +1,7 @@
 // Scène du marchandage, vue depuis l'étal : la cliente en face, le comptoir, le tissu, nos mains.
 // Chaque action du joueur et chaque réponse de la cliente devient un geste : déplier le pagne,
 // le toucher, annoncer un prix, secouer la tête, poser les billets, emporter le tissu.
+import { Customer3D, USE3D } from './customer3d.js';
 import { drawPortrait, drawHand, drawFigure, traits, tone } from './people.js';
 import { waxPattern } from './wax.js';
 import { TIERS } from './data.js';
@@ -30,6 +31,7 @@ export class HaggleScene {
       look: { skin: Math.floor(rr() * 5), style: Math.floor(rr() * 3), seed: Math.floor(rr() * 1e6) }, man: rr() < 0.3, d: rr(),
     }));
     this.cloth = { u: 0, x: 0, y: 0, owner: 'counter' };
+    this.c3d = USE3D ? new Customer3D(c.look, c.P.man) : null; this.lastT = 0;
     this.notes = 0; this.notesHeld = 'none';
     this.play('intro');
     this.play('touch', {}, 1.5);
@@ -229,7 +231,13 @@ export class HaggleScene {
     g.globalAlpha = fade;
     const px = cx + slide * W * 0.7, py = L.py + lean * 8 * s;
     const gz = { x: gazeX ?? Math.sin(t * 0.37) * 0.2, y: gazeY };
-    drawPortrait(g, W, H, this.c.look, { place: { x: px, y: py, s: s * (1 - lean * 0.04) }, mood: this.mood, talk: talking, man: this.c.P.man, blink, t, turn, nod: nod + gazeY * 1.2, gaze: gz });
+    const dt = Math.min(0.05, Math.max(0, t - this.lastT)); this.lastT = t;
+    if (this.c3d && this.c3d.ready) {
+      // buste 3D : rendu à la taille du canevas, recopié à la place du portrait (le comptoir le coupe à la taille)
+      const dpr = Math.min(2, devicePixelRatio || 1), bh = counterY + 30 * s;
+      this.c3d.render(Math.round(W * dpr), Math.round(bh * dpr), dt, { talking: talking > 0, turn, nod: nod + gazeY * 1.2, lean, gazeX: gz.x });
+      g.drawImage(this.c3d.canvas, px - cx, lean * 6 * s, W, bh);
+    } else drawPortrait(g, W, H, this.c.look, { place: { x: px, y: py, s: s * (1 - lean * 0.04) }, mood: this.mood, talk: talking, man: this.c.P.man, blink, t, turn, nod: nod + gazeY * 1.2, gaze: gz });
     g.restore();
 
     this.roofEdge(g, W, H);

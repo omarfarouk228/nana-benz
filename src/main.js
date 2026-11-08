@@ -968,4 +968,4 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 }
 
 // accès de débogage pour les tests
-window.__nb = { get S() { return S; }, market, G };
+window.__nb = { get S() { return S; }, market, G, openHaggle };

@@ -11,7 +11,7 @@ Jeu de commerce dans le navigateur (PC et mobile). Lomé, décembre 1974 : ta ta
 3. **Le marché** (de 7 h à 18 h) : les clientes arrivent, regardent, attendent. Touche-en une pour la servir.
 3 bis. **Héler les passants** : ta commerçante crie un boniment, un passant proche peut se retourner et venir à l'étal (meilleures chances avec une bonne réputation, un tissu à la mode ou un parasol).
 4. **Le marchandage** : elle fait une offre, tu annonces ton prix, elle remonte… ou s'en va. Tu peux vanter la qualité, parler de la mode ou du mariage, offrir un foulard. Chaque cliente a son caractère : la future mariée et sa mère, la trésorière de chorale qui veut 10 pièces du même motif, la revendeuse de Cotonou, l'étudiante, le commerçant d'Accra, la touriste…
-   La scène se vit depuis l'étal : tu déplies le pagne sur le comptoir, elle le touche, hoche ou secoue la tête, répond après un temps de réflexion avec sa propre voix, pose ses billets que tu ramasses, puis repart avec le tissu plié.
+   La scène se vit depuis l'étal : tu déplies le pagne sur le comptoir, elle le touche, hoche ou secoue la tête, répond après un temps de réflexion avec sa propre voix, pose ses billets que tu ramasses, puis repart avec le tissu plié. La cliente est un personnage en 3D (pagne wax et foulard, ou chemise et costume pour les commerçants), qui respire, parle et se détourne quand elle s'en va.
 5. **Le soir** : bilan, revendeuses à qui confier des pièces (Aného, Kpalimé, Atakpamé, Cotonou, Accra : elles reviennent avec l'argent… ou pas), améliorations (parasol, étal plus large, ta petite sœur au stand, magasin au port, boutique en dur, ton propre motif en exclusivité).
 
 Le calendrier compte : samedis chargés, dimanches fermés, Noël, Nouvel An, défilé du 13 janvier, semaine sainte, fête de l'Indépendance, jours de pluie, jours de paie, grands mariages.
@@ -39,13 +39,14 @@ Contexte historique utilisé : nationalisation des phosphates (2 février 1974),
 
 ## Commandes
 
-Tout se joue à la souris ou au doigt, et au clavier : 1, 2, 3 servent une cliente, H hèle les passants ; pendant le marchandage, ← → changent le prix (Maj : par 500), Entrée propose, A accepte. La partie est sauvegardée après chaque vente. Une fois chargé, le jeu fonctionne hors ligne.
+Tout se joue à la souris ou au doigt, et au clavier : 1, 2, 3 servent une cliente, H hèle les passants ; pendant le marchandage, ← → changent le prix (Maj : par 500), Entrée propose, A accepte. Un bouton coupe le son. La partie est sauvegardée après chaque vente. Une fois chargé, le jeu fonctionne hors ligne.
 
 ## Technique
 
-- [Vite](https://vite.dev) et JavaScript, sans moteur de jeu ni bibliothèque graphique : scène en Canvas 2D, interface en HTML et CSS.
+- [Vite](https://vite.dev) et JavaScript, sans moteur de jeu : marché et mise en scène en Canvas 2D, interface en HTML et CSS.
 - **Motifs wax générés par le programme** (`src/wax.js`) : seize familles de motifs (œil, hirondelles, bulles, losanges, éventail, feuilles, escargot, cauris, chevrons, disque, clés, fleurs, cage, ampoules, tam-tam, bandes), tuiles raccordables avec craquelures de cire. Aucun fichier image.
-- Personnages dessinés en 2D (`src/people.js`), sons générés en WebAudio (`src/audio.js`).
+- **Cliente du marchandage en 3D** avec [Three.js](https://threejs.org) (`src/customer3d.js`) : six personnages générés avec [MakeHuman](http://www.makehumancommunity.org) (MPFB2 dans Blender, actifs CC0), quatre femmes en pagne wax et foulard, deux hommes, animés par les clips de la [Universal Animation Library de Quaternius](https://quaternius.com) (CC0). Le buste est rendu sur un canevas transparent que la mise en scène peinte recopie à la place du portrait ; mains, pagne et billets restent peints. `?2d` dans l'adresse rend le portrait peint. Les touristes et les enfants gardent leur portrait peint.
+- Passants, clientes du marché et commerçante dessinés en 2D (`src/people.js`), sons générés en Web Audio (`src/audio.js`).
 - Moteur de commerce séparé de l'affichage (`src/game.js`) : modes, prix, clientèle, marchandage, revendeuses, sauvegarde.
 
 ```bash
@@ -64,6 +65,7 @@ Chaque push sur `main` est déployé sur GitHub Pages.
 | `src/music.js` | Musique générée : cloche ewe en 12/8, hochet, basse, guitare highlife, kalimba |
 | `src/cine.js` | Cinématiques de l'aube (plage de Lomé) et du soir (Grand marché) |
 | `src/scene.js` | Scène du marchandage vue de l'étal : gestes, mains, billets, tissu |
+| `src/customer3d.js` | Cliente en 3D (Three.js) : chargement, animation, cadrage |
 | `src/game.js` | Règles et économie |
 | `src/data.js` | Catalogue, clientèle, revendeuses, améliorations, calendrier, événements |
 | `src/market.js` | Scène du Grand marché (Canvas 2D) |
@@ -71,11 +73,12 @@ Chaque push sur `main` est déployé sur GitHub Pages.
 | `src/people.js` | Portraits et silhouettes |
 | `src/audio.js` | Sons |
 | `src/reveal.js` | Le garage : voitures et scène de livraison |
+| `public/models/` | Six clientes et clients (GLB) et la bibliothèque de clips |
 | `public/sw.js` | Jeu hors ligne |
 | `tests/` | Tests du moteur et joueuses automatiques |
 
 ## Crédits
 
-Jeu original. Les surnoms des motifs (« L'œil de ma rivale », « Si tu sors, je sors », « Hirondelles »…) sont ceux qu'on entend sur les marchés d'Afrique de l'Ouest ; les dessins sont générés par le jeu. Hommage aux commerçantes de wax de Lomé.
+Jeu original. Personnages 3D générés avec MakeHuman (actifs CC0) ; animations Quaternius (CC0). Les surnoms des motifs (« L'œil de ma rivale », « Si tu sors, je sors », « Hirondelles »…) sont ceux qu'on entend sur les marchés d'Afrique de l'Ouest ; les dessins sont générés par le jeu. Hommage aux commerçantes de wax de Lomé.
 
 Code © Omar Farouk. Tous droits réservés sauf mention contraire.

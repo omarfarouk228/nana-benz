@@ -51,6 +51,15 @@ export function migrate(s) {
   s.cars ||= s.won ? ['benz200'] : [];
   s.flags.nov ||= {};
   for (const p of releasedPatterns(s)) s.trend[p.id] ??= 1.45;
+  // assainir le stock : chaque entrée doit être { q, cost } avec une quantité positive, sinon on la retire
+  s.stock ||= {};
+  for (const id of Object.keys(s.stock)) {
+    const st = s.stock[id];
+    const ok = st && typeof st === 'object' && Number.isFinite(st.q) && st.q > 0 && (id === 'excl' || byId[id]);
+    if (!ok) delete s.stock[id];
+    else if (!Number.isFinite(st.cost)) st.cost = 0;
+  }
+  s.shelf = (s.shelf || []).filter((id, i, a) => s.stock[id] && a.indexOf(id) === i);
   return s;
 }
 
